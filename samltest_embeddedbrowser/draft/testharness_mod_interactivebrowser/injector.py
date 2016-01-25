@@ -1,5 +1,11 @@
 from PyQt4.QtNetwork import QNetworkRequest, QNetworkAccessManager, QNetworkCookie, QNetworkCookieJar, QNetworkReply
-from PyQt4.QtCore import QUrl, QString
+from PyQt4.QtCore import QUrl
+
+try:
+    from PyQt4.QtCore import QString
+except ImportError:
+    # we are using Python3 so QString is not defined
+    QString = type("")
 
 from PyQt4.QtCore import   QTextStream,  QVariant, QTimer, SIGNAL
 from PyQt4 import QtCore
@@ -58,14 +64,13 @@ class InjectedQNetworkRequest(QNetworkRequest):
 	The InjectedNetworkReply will be given to the browser.
 """
 class InjectedNetworkReply(QNetworkReply):
- 	def __init__(self, parent, url, content, operation):
-
+	def __init__(self, parent, url, content, operation):
 		QNetworkReply.__init__(self, parent)
 		self.content = content
 		self.offset = 0
 
-		self.setHeader(QNetworkRequest.ContentTypeHeader, QVariant("text/html"))
-		self.setHeader(QNetworkRequest.ContentLengthHeader, QVariant(len(self.content)))
+		self.setHeader(QNetworkRequest.ContentTypeHeader, "text/html")
+		self.setHeader(QNetworkRequest.ContentLengthHeader, len(self.content))
 
 		QTimer.singleShot(0, self, SIGNAL("readyRead()"))
 		QTimer.singleShot(0, self, SIGNAL("finished()"))

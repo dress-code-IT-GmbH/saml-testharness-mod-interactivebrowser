@@ -1,11 +1,15 @@
 import sys
 from PyQt4.QtGui import QApplication,  QGridLayout, QWidget, QPushButton
 from PyQt4.QtWebKit import QWebView
-from PyQt4.QtCore import QString
+try:
+    from PyQt4.QtCore import QString
+except ImportError:
+    # we are using Python3 so QString is not defined
+    QString = type("")
 
-from injector import InjectedQNetworkRequest, InjectedQNetworkAccessManager
-from gui import UrlInput
-import path
+from .injector import InjectedQNetworkRequest, InjectedQNetworkAccessManager
+from .gui import UrlInput
+#import path
 
 """
 
@@ -68,7 +72,6 @@ class TestAction(object):
 		main_frame.show()
 
 		app.exec_()
-		print "done"
 		return self.retval
 
 
@@ -105,7 +108,7 @@ class AutoCloseUrls(object):
 
 	def check(self,path,status):
 		for u in self.urls:
-			print "(%s ? %s + %s ? %s)" % ( u.path, path, u.status, status )
+			print ("(%s ? %s + %s ? %s)" % ( u.path, path, u.status, status ))
 			if path.startsWith(u.path) and u.status == status:
 				if u.result:
 					return "OK"
