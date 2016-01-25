@@ -1,4 +1,4 @@
-# Overview: Embedded Browser asn Content Handler in saml2test2
+# Overview: Embedded Browser as Content Handler in saml2test2
 
 ## Test Operations in the Test Tool
 (to be updated from Rainer's view of saml2test to actual saml2test2)
@@ -7,24 +7,24 @@ The test operation is a sequence of SAML request-response pairs called (SAML) fl
 In this case there is just a single flow, which  is AuthnRequest/Response. However, 
 a flow can consist of multiple HTTP request-response pairs.  This is example from 
 the perspective of the test tool, emulating the user browser in the WebSSO flow:
-1a. HTTP GET or POST on IDP’s SSO service URL, contents: AuthnRequest + RelayState
-1b. HTTP response 30x to IDP login page (assuming the user has no active IDP session)
-2a. HTTP GET IDP login
-2b. HTTP response 200 (assuming UID/PW login)
-3a. HTTP POST on IDP to login submit URL, content: form data with uid/pw
-3b. HTTP response 200 (assuming IDP requires consent)
-4a. HTTP POST on IDP to consent submit URL, content: form data with attribute release consent
-4b. HTTP response 200, contents: Page wit Javascript that will POST SamlResponse + Relaystate)
-(Ends here - test tool analyzes form contents to check if test was passed.)
+- 1a. HTTP GET or POST on IDP’s SSO service URL, contents: AuthnRequest + RelayState
+- 1b. HTTP response 30x to IDP login page (assuming the user has no active IDP session)
+- 2a. HTTP GET IDP login
+- 2b. HTTP response 200 (assuming UID/PW login)
+- 3a. HTTP POST on IDP to login submit URL, content: form data with uid/pw
+- 3b. HTTP response 200 (assuming IDP requires consent)
+- 4a. HTTP POST on IDP to consent submit URL, content: form data with attribute release consent
+- 4b. HTTP response 200, contents: Page wit Javascript that will POST SamlResponse + Relaystate)
+- (Ends here - test tool analyzes form contents to check if test was passed.)
 
 There is a function in the test tool (let us call it flow handler) that will 
 execute the operation outlined above. It is governed be following rules:
-A. HTTP Code 30x will be handled internally by HTTP client
-B. HTTP Code >= 400 will terminate the operation
-C. HTTP Code < 300 will be handled by the flow handler if it is the final response 
+- A. HTTP Code 30x will be handled internally by HTTP client
+- B. HTTP Code >= 400 will terminate the operation
+- C. HTTP Code < 300 will be handled by the flow handler if it is the final response 
 (although this requires the flow handler to analyze the POST data - possibly 
 difficult if Javascript is involved. This would be better be done by a content handler)
-D. HTTP Code < 300 before the final response will be handled by a submodule using 
+- D. HTTP Code < 300 before the final response will be handled by a submodule using 
 robobrowser to match (and scape?) a particular page and construct the appropriate 
 contents for the subsequent HTTP request.
 
