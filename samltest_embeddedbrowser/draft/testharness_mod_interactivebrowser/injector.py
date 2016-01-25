@@ -118,24 +118,41 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 	def setInjectedResponse(self, response):
 		self.response = response
 
-	def _getCookieHeaders(self):
-		info = self.response.info()
-		headers = info.getheaders('Set-Cookie')
-		return headers
+	def _getCookieHeader(self):
+		info = self.response
+		header = info.getheader('Set-Cookie')
+		if header:
+			return 'Set-Cookie: ' + header
+		else:
+			return None
 
 	def _createCookieJarfromInjectedResponse(self, default_domain):
 		#ugly, but works around bugs in parseCookies
 		cookies = []
 
-		for cookie_header in self._getCookieHeaders():
-			tmp_cookieList = QNetworkCookie.parseCookies(cookie_header)
-			tmp_cookie = tmp_cookieList[0]
+		cj = QNetworkCookieJar()
+
+		cookie_header = self._getCookieHeader()
+		if not cookie_header:
+			return cj
+
+		#print (cookie_header)
+
+		tmp_cookieList = QNetworkCookie.parseCookies(cookie_header)
+
+		#print (tmp_cookieList)
+
+		if not tmp_cookieList:
+			return cj
+
+		for tmp_cookie in tmp_cookieList:
 			if not tmp_cookie.domain():
 				tmp_cookie.setDomain(QString(default_domain))
 
-			cookies = cookies + tmp_cookieList
+			cookies.append( tmp_cookie )
 
-		cj = QNetworkCookieJar()
+		cookies = cookies + tmp_cookieList
+
 		cj.setAllCookies(cookies)
 		return cj
 
@@ -167,9 +184,17 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 	def checkAutoCloseUrls(self):
 		sender = self.sender()
 		url = sender.url().toString()
-		http_status = sender.attribute( QNetworkRequest.HttpStatusCodeAttribute).toInt()
+		http_status_pre = sender.attribute( QNetworkRequest.HttpStatusCodeAttribute)
 
-		result = self.autocloseurls.check(url, http_status[0])
+		try:
+			#python2
+			http_status = http_status_pre.toInt()
+			http_status_result = http_status[0]
+		except AttributeError:
+			#python 3
+			http_status_result = http_status_pre
+
+		result = self.autocloseurls.check(url, http_status_result)
 		if result == 'OK':
 			self.autocloseOk.emit()
 		if result == 'FAILED':

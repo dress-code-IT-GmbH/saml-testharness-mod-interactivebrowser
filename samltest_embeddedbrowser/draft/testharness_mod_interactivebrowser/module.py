@@ -106,10 +106,23 @@ class AutoCloseUrls(object):
 		u = AutoCloseUrl(path,status,result)
 		self.urls.append(u)
 
+	def _url_is_equal(self, url, path, status):
+		try:
+			#python2
+			if path.startsWith(url.path) and url.status == status:
+				return True
+		except AttributeError:
+			#python3
+			if path.startswith(url.path) and url.status == status:
+				return True
+
+
+		return False
+
 	def check(self,path,status):
 		for u in self.urls:
 			print ("(%s ? %s + %s ? %s)" % ( u.path, path, u.status, status ))
-			if path.startsWith(u.path) and u.status == status:
+			if self._url_is_equal(u, path, status):
 				if u.result:
 					return "OK"
 				else:
