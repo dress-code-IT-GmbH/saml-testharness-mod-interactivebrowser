@@ -34,20 +34,41 @@ embedded browser. Now the flow handler has a processing pipeline that allows
 different content handlers to register, in our case robobrowser (RB) first and 
 embeddedBrowser (EB) second. The proposed interface to each content handler is:
 
-    class Content_handler:
-        # autoCloseUrls is a list of left-matching URLs that are expected
+    class ContentHandler:
+        # autoCloseUrls is a list of URLs that are expected
         # exit events for the browser widget. This is necessary to allow other
         # resources (img, css, js, ..) to be loaded.
-        def handle_response(self, http_response, auto_close_urls, request_url) -> Ch_response:
+        def handle_response(self, http_response, auto_close_urls, request_url)
+        def handle_response(self, http_response, auto_close_urls, request_url,
+                   conv=None, verify_ssl=True, cookie_jar=None) -> HandlerResponse:
+            """
+           :param http_response: The HTTP response to handle
+           :param auto_close_urls: A list of URLs that if left-matching should
+           lead to return control to the caller. Only required if calling and
+           embedded browser to have other resources such as img, css, and js 
+           loaded by the embedded browser.
+           :param request_url: required by the embedded browser to dereference
+           relative URLs
+           :param conv: An aatest.conversation.Conversation instance
+           :param verify_ssl: (True/False) whether the ssl certificates must
+           be verified. Default is True
+           :param cookie_jar: A http.cookiejar.CookieJar instance
+           :return: A aatest.contenthandler.HandlerResponse instance
+           """
+            ...
+            
+    class HandlerResponse(object):
+        def __init__(self, content_processed, user_action='',
+                cookie_jar=None, http_response=None, response=None):
+           """
+           :param content_processed: bool
+           :param user_action: A string denoting user action ('OK‘, 'NOK’,
+           'aborted‘)
+           :param cookie_jar: A http.cookiejar.CookieJar instance
+           :param http_response: A Response instance
+           :param response: A semi parsed response, might be a dictionary
+           """            
     
-    class Ch_response: 
-        def __init__(self, cp, ua, hm, ru, cl, rc):
-        content_processed = cp  # bool (always True for the EB)
-        user_action = ua   # in ('OK‘, 'NOK’, 'aborted‘) 
-        http_method = hm   # (usually in ‚GET', ‚POST‘)
-        request_url = ru   # not sure wee need this -> discuss
-        cookiejar = cl     # instanceof http.cookiejar
-        request_contents = rc  # (like application/x-www-form-urlencoded)
 
 ### Process:
 Let us assume that there is a RB config matching the login form, but not the 
