@@ -57,9 +57,14 @@ class ContentHandler(contenthandler.ContentHandler):
 		
 	def handle_response(self, http_response, auto_close_urls, http_request, 
 					conv=None, verify_ssl=True, cookie_jar=None):
-		if cookie_jar:
-			# TODO
+		
+		if self.cookie_jar:
+			"""
+				TODO: Have a hybrid qt4, python-lib cookie_jar, that is
+				updated on every request
+			"""
 			raise NotImplementedError
+		
 	
 		if http_response is None:
 			return

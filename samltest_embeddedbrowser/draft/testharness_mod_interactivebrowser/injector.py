@@ -199,7 +199,7 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 		cj.extract_cookies(self.response, self.request)
 		"""
 		tricky: exporting cookies from the jar. Needs extract_cookies
-			first to do some cj initialization
+			first, to do some cj initialization
 		"""
 		cookies = cj.make_cookies(self.response, self.request)
 		attrs = cj._cookie_attrs(cookies)

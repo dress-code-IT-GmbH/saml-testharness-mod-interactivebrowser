@@ -52,7 +52,7 @@ embeddedBrowser (EB) second. The proposed interface to each content handler is:
            relative data in the response.
            :param conv: An aatest.conversation.Conversation instance [Not touched, see Note 1]
            :param verify_ssl: (True/False) whether the test fails on ssl errors
-           :param cookie_jar: A http.cookiejar.CookieJar instance
+           :param cookie_jar: A http.cookiejar.CookieJar instance [Not touched - TODO]
            :return: A aatest.contenthandler.HandlerResponse instance [see Note 2]
            """
 
