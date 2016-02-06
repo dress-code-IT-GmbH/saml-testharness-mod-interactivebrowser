@@ -45,20 +45,21 @@ embeddedBrowser (EB) second. The proposed interface to each content handler is:
         def handle_response(self, http_response, auto_close_urls, http_request,
                    conv=None, verify_ssl=True, cookie_jar=None) -> HandlerResponse:
             """
-           :param http_response: The HTTP response to handle
-           :param auto_close_urls: A list of URLs that if left-matching should
-           lead to return control to the caller. Only required if calling and
-           embedded browser to have other resources such as img, css, and js 
-           loaded by the embedded browser.
-           :param http_request: required by the embedded browser to dereference
-           relative entities
-           :param conv: An aatest.conversation.Conversation instance
-           :param verify_ssl: (True/False) whether the ssl certificates must
-           be verified. Default is True
+           :param http_response: The (urllib2) HTTP response to handle
+           :param auto_close_urls: A list of AutoCloseUrl instances, which return
+           control to the caller on known good or bad responses..
+           :param http_request: The (urllib2) HTTP request. Used to dereference
+           relative data in the response.
+           :param conv: An aatest.conversation.Conversation instance [Not touched, see Note 1]
+           :param verify_ssl: (True/False) whether the test fails on ssl errors
            :param cookie_jar: A http.cookiejar.CookieJar instance
-           :return: A aatest.contenthandler.HandlerResponse instance
+           :return: A aatest.contenthandler.HandlerResponse instance [see Note 2]
            """
-            ...
+
+Note 1: As the conv holds a copy of every response, there should be a black/whitelist so the EB will not
+dump irrelevant data (like js or pictures) in it.
+
+Note 2: Does not return result objects.          
             
     class HandlerResponse(object):
         def __init__(self, content_processed, user_action='',

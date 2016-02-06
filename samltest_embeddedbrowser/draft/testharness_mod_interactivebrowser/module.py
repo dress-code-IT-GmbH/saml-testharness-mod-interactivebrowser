@@ -11,7 +11,15 @@ from .injector import InjectedQNetworkRequest, InjectedQNetworkAccessManager
 from .gui import UrlInput
 
 from aatest import contenthandler
-#import path
+
+class HandlerResponse(object):
+	def __init__(self, content_processed, user_action='',
+				cookie_jar=None, http_response=None, response=None):
+		self.content_processed = content_processed
+		self.user_action = user_action
+		self.cookie_jar = cookie_jar
+		self.http_response = http_response
+		self.response = response		
 
 """
 
@@ -50,9 +58,7 @@ class ContentHandler(contenthandler.ContentHandler):
 	def handle_response(self, http_response, auto_close_urls, http_request, 
 					conv=None, verify_ssl=True, cookie_jar=None):
 		if cookie_jar:
-			"""
-				cookies are within the http_response. aren't they?
-			"""
+			# TODO
 			raise NotImplementedError
 	
 		if http_response is None:
@@ -72,7 +78,7 @@ class ContentHandler(contenthandler.ContentHandler):
 
 		request = InjectedQNetworkRequest(self.http_request)
 
-		nam = InjectedQNetworkAccessManager()
+		nam = InjectedQNetworkAccessManager(ignore_ssl_errors=True)
 		nam.setInjectedResponse(self.http_response, self.http_request)
 		nam.setAutoCloseUrls(self.auto_close_urls)
 
@@ -113,7 +119,11 @@ class ContentHandler(contenthandler.ContentHandler):
 
 		app.exec_()
 		
-		handler_response = None
+		processed = False
+		if self.retval == 'OK' or self.retval == 'NOK':
+			processed = True
+		
+		handler_response = HandlerResponse(processed, user_action=self.retval)
 		
 		return handler_response
 
@@ -157,7 +167,6 @@ class AutoCloseUrls(object):
 	def _url_is_equal(self, url, path, status):
 		try:
 			#python2
-			print "p2"
 			if path.startsWith(url.path) and url.status == status:
 				return True
 		except AttributeError:
@@ -170,7 +179,7 @@ class AutoCloseUrls(object):
 
 	def check(self,path,status):
 		for u in self.urls:
-			print ("check (%s ? %s + %s ? %s)" % ( u.path, path, u.status, status ))
+			#print ("check (%s ? %s + %s ? %s)" % ( u.path, path, u.status, status ))
 			if self._url_is_equal(u, path, status):
 				if u.result:
 					return "OK"

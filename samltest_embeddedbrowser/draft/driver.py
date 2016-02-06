@@ -18,6 +18,7 @@ target_path =  "http://www.warwaris.at/brtest/"
 if __name__ == "__main__":
 
 	request_url = target_path + "brtest.php"
+	request_url = "https://www.cacert.org/"
 
 	http_request = mechanize.Request(request_url)
 	http_response = mechanize.urlopen(http_request)

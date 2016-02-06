@@ -1,3 +1,5 @@
+from future.standard_library import install_aliases
+
 from PyQt4.QtNetwork import QNetworkRequest, QNetworkAccessManager, QNetworkCookie, QNetworkCookieJar, QNetworkReply
 from PyQt4.QtCore import QUrl
 
@@ -11,6 +13,11 @@ from PyQt4.QtCore import   QTextStream,  QVariant, QTimer, SIGNAL, QByteArray
 from PyQt4 import QtCore
 
 from http.cookiejar import CookieJar
+import StringIO
+import mimetools
+
+install_aliases()
+from urllib import addinfourl
 """
 	The pyqt bindings don't care much about our classes, so we have to
 	use some trickery to get around that limitations. And there are some
@@ -102,49 +109,72 @@ class InjectedNetworkReply(QNetworkReply):
 			return data
 
 
+
+	def getUrllibResponse(self):
+		return None
+
+"""
+	The SniffingNetworkReply stores the content.
+	TODO: As this is using up twice the mem for the response: make this just store the
+	interesting stuff, up to a configurable amount, and just passing thru the rest.
+"""
+
 class SniffingNetworkReply(QNetworkReply):
 	def __init__(self, parent, request, reply, operation):
 		self.sniffed_content = QByteArray()
-		QNetworkReply.__init__(self, parent)
 		
+		QNetworkReply.__init__(self, parent)
 		self.open(self.ReadOnly | self.Unbuffered)
 		self.setUrl(QUrl(request.url()))
-
-		
+		self.offset = 0
+			
 		reply.finished.connect(self.onReplyFinished)
+		
 	def abort(self):
 		pass
 	
 	def bytesAvailable(self):
-		c_bytes = self.reply.bytesAvailable()
-		print "ba %s" % ( c_bytes, )
+		c_bytes = len(self.sniffed_data) - self.offset + QNetworkReply.bytesAvailable(self)
 		return c_bytes
 
 	def isSequential(self):
 		return True
 
 	def readData(self, maxSize):
-		print "fooba2r %s" % (maxSize, )
-		data = self.reply.read(maxSize)
-		#print self.reply
-		#print data
-		return data
-		
+		if self.offset < len(self.sniffed_data):
+			end = min(self.offset + maxSize, len(self.sniffed_data))
+			data = self.sniffed_data[self.offset:end]
+			self.offset = end
+			return data
 
 	def onReplyFinished(self):
-		print ("fin!")
 		self.reply = self.sender()
+		
+
 		raw_header_pairs = self.reply.rawHeaderPairs()
 		for header in raw_header_pairs:
 			self.setRawHeader(header[0],header[1])
 		
 		http_status = self.reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)	
 		self.setAttribute(QNetworkRequest.HttpStatusCodeAttribute, http_status)
-		self.emitFinish()	
-	
-	def emitFinish(self):	
+			
+		bytes_available = self.reply.bytesAvailable()
+		self.sniffed_data = self.reply.read(bytes_available + 512)
+		
 		self.readyRead.emit()
 		self.finished.emit()
+	
+	"""
+	not implemented now
+	def getUrllibResponse(self):
+		output_file = StringIO.StringIO()
+		raw_header_pairs = self.reply.rawHeaderPairs()
+		for header in raw_header_pairs:
+			output_file.write('%s: %s' % (header[0], header[1]))
+		output_file.write("\n")	
+		print output_file.getvalue()
+	"""	
+		
 
 """
 	The InjectedQNetworkAccessManager will create a InjectedNetworkReply if
@@ -155,8 +185,9 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 	autocloseOk = QtCore.pyqtSignal()
 	autocloseFailed = QtCore.pyqtSignal()
 
-	def __init__(self, parent = None):
+	def __init__(self, parent = None, ignore_ssl_errors=False):
 		super(InjectedQNetworkAccessManager, self).__init__(parent)
+		self.ignore_ssl_errors = ignore_ssl_errors
 
 	def setInjectedResponse(self, response, request):
 		self.response = response
@@ -222,27 +253,45 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 			default_cookie_domain = self._cookie_default_domain(request)
 			cookiejar = self._createCookieJarfromInjectedResponse(default_cookie_domain)
 			self.setCookieJar(cookiejar)
-
+			
 		else:
 			original_r = QNetworkAccessManager.createRequest(self, op, request, device)
-			
+			original_r.sslErrors.connect(self.sslErrorHandler)
 			r = SniffingNetworkReply(self, request, original_r, op)
 
 		r.finished.connect(self.requestFinishedActions)
 
 		return r
 
+	def sslErrorHandler(self,errorlist):
+		response = self.sender()
+		if self.ignore_ssl_errors:
+			response.ignoreSslErrors(errorlist)
+		else:
+			print ("Test aborted because of ssl errors:")
+			for error in errorlist:
+				print ( error.errorString() )
+			self.autocloseFailed.emit()
+
 	def setAutoCloseUrls(self,autocloseurls):
 		self.autocloseurls = autocloseurls
 
 	def requestFinishedActions(self):
+		#self.processReply()
 		self.checkAutoCloseUrls()
+
+	def processReply(self):
+		raise notImplementedError()
+		"""
+		returning urllib response is not implemented now
+		"""
+		reply = self.sender()
+		urrlib_response = reply.getUrllibResponse()
 
 	def checkAutoCloseUrls(self):
 		sender = self.sender()
 		url = sender.url().toString()
 		http_status_pre = sender.attribute( QNetworkRequest.HttpStatusCodeAttribute)
-		print http_status_pre
 		try:
 			#python2
 			http_status = http_status_pre.toInt()
