@@ -7,7 +7,8 @@ to the interactive browser to proceed.
 """
 from future.standard_library import install_aliases
 
-from testharness_mod_interactivebrowser.module import TestAction, AutoCloseUrls
+from testharness_mod_interactivebrowser.module import ContentHandler, AutoCloseUrls
+import mechanize
 
 install_aliases()
 from urllib.request import urlopen
@@ -16,20 +17,19 @@ target_path =  "http://www.warwaris.at/brtest/"
 
 if __name__ == "__main__":
 
-	test_target = target_path + "brtest.php"
+	request_url = target_path + "brtest.php"
 
-	response = urlopen(test_target)
+	http_request = mechanize.Request(request_url)
+	http_response = mechanize.urlopen(http_request)
 
 
 	# retrieving ./ack.txt from the server will end the test too
-	autocloseurls = AutoCloseUrls()
-	autocloseurls.add(target_path + 'ack', 200, True)
+	auto_close_urls = AutoCloseUrls()
+	auto_close_urls.add(target_path + 'ack', 200, True)
 
 	# init and run the test
-	test = TestAction(autocloseurls)
-	result = test.run(response,test_target)
+	test = ContentHandler(None)
+	result = test.handle_response(http_response, auto_close_urls, http_request,None,True)
 
-	if result:
-		print ("Test: OK")
-	else:
-		print ("Test: Failed")
+	print ( "Test result user action: " + result.user_action )
+	

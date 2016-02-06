@@ -35,11 +35,14 @@ different content handlers to register, in our case robobrowser (RB) first and
 embeddedBrowser (EB) second. The proposed interface to each content handler is:
 
     class ContentHandler:
+    	 def __init__(self, interactions, conv=None):
+    	 	:param interactions: This content handler does not have interactions,
+    	 	so a NotImplemented is raised if interactions is not None.
         # autoCloseUrls is a list of URLs that are expected
         # exit events for the browser widget. This is necessary to allow other
         # resources (img, css, js, ..) to be loaded.
-        def handle_response(self, http_response, auto_close_urls, request_url)
-        def handle_response(self, http_response, auto_close_urls, request_url,
+        def handle_response(self, http_response, auto_close_urls, http_request)
+        def handle_response(self, http_response, auto_close_urls, http_request,
                    conv=None, verify_ssl=True, cookie_jar=None) -> HandlerResponse:
             """
            :param http_response: The HTTP response to handle
@@ -47,8 +50,8 @@ embeddedBrowser (EB) second. The proposed interface to each content handler is:
            lead to return control to the caller. Only required if calling and
            embedded browser to have other resources such as img, css, and js 
            loaded by the embedded browser.
-           :param request_url: required by the embedded browser to dereference
-           relative URLs
+           :param http_request: required by the embedded browser to dereference
+           relative entities
            :param conv: An aatest.conversation.Conversation instance
            :param verify_ssl: (True/False) whether the ssl certificates must
            be verified. Default is True

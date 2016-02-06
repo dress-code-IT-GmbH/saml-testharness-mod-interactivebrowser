@@ -2,13 +2,15 @@ import sys
 from PyQt4.QtGui import QApplication,  QGridLayout, QWidget, QPushButton
 from PyQt4.QtWebKit import QWebView
 try:
-    from PyQt4.QtCore import QString
+	from PyQt4.QtCore import QString
 except ImportError:
-    # we are using Python3 so QString is not defined
-    QString = type("")
+	# we are using Python3 so QString is not defined
+	QString = type("")
 
 from .injector import InjectedQNetworkRequest, InjectedQNetworkAccessManager
 from .gui import UrlInput
+
+from aatest import contenthandler
 #import path
 
 """
@@ -25,23 +27,57 @@ from .gui import UrlInput
 
 """
 
+class ContentHandler(contenthandler.ContentHandler):
+	def __init__(self, interactions, conv=None):
+		contenthandler.ContentHandler.__init__(self)
+		"""
+			this content handler does not support automatic interactions
+			we make sure it is not set ..
+		"""
+		if interactions:
+			raise NotImplementedError
+		
+		self.conv = conv
+		self.cjar = {}
+		self.features = {}
+		self.handler = None
+		self.auto_close_urls = []
+		self.http_request = None
+		self.http_response = None
+		
+		self.last_response = None
+		
+	def handle_response(self, http_response, auto_close_urls, http_request, 
+					conv=None, verify_ssl=True, cookie_jar=None):
+		if cookie_jar:
+			"""
+				cookies are within the http_response. aren't they?
+			"""
+			raise NotImplementedError
+	
+		if http_response is None:
+			return
+		
+		self.http_response = http_response
+		self.auto_close_urls = auto_close_urls
+		self.http_request = http_request
+		self.conv = conv
+		self.verify_ssl = verify_ssl
+		
+		return self._run()
 
-class TestAction(object):
-
-	def __init__(self,autocloseurls=None):
-		self.autocloseurls = autocloseurls
-
-	def run(self,urllib_response,request_url):
-		self.retval = False
+	def _run(self):
+		self.retval = 'NOK'
 
 
-		request = InjectedQNetworkRequest(request_url)
+		request = InjectedQNetworkRequest(self.http_request)
 
 		nam = InjectedQNetworkAccessManager()
-		nam.setInjectedResponse(urllib_response)
-		nam.setAutoCloseUrls(self.autocloseurls)
+		nam.setInjectedResponse(self.http_response, self.http_request)
+		nam.setAutoCloseUrls(self.auto_close_urls)
 
 		nam.autocloseOk.connect(self.button_ok)
+		nam.autocloseFailed.connect(self.button_failed)
 
 		app = QApplication([])
 		grid = QGridLayout()
@@ -60,27 +96,39 @@ class TestAction(object):
 		test_failed_button = QPushButton("Test &Failed")
 		test_failed_button.clicked.connect(self.button_failed)
 
+		test_abort_button = QPushButton("Abort Test")
+		test_abort_button.clicked.connect(self.button_abort)
+
 		url_input = UrlInput(browser)
 
 		grid.addWidget(test_ok_button, 1, 0)
 		grid.addWidget(test_failed_button, 1, 1)
-		grid.addWidget(url_input, 2, 0, 1, 2)
-		grid.addWidget(browser, 4, 0, 1, 2)
+		grid.addWidget(test_abort_button, 1, 2)
+		grid.addWidget(url_input, 2, 0, 1, 3)
+		grid.addWidget(browser, 4, 0, 1, 3)
 
 		main_frame = QWidget()
 		main_frame.setLayout(grid)
 		main_frame.show()
 
 		app.exec_()
-		return self.retval
+		
+		handler_response = None
+		
+		return handler_response
 
 
 	def button_ok(self):
-		self.retval = True
+		self.retval = 'OK'
 		QApplication.quit()
 
 
 	def button_failed(self):
+		self.retval = 'NOK'
+		QApplication.quit()
+		
+	def button_abort(self):
+		self.retval = 'aborted'
 		QApplication.quit()
 
 """
@@ -126,5 +174,5 @@ class AutoCloseUrls(object):
 				if u.result:
 					return "OK"
 				else:
-					return "FAILED"
+					return "NOK"
 		return None

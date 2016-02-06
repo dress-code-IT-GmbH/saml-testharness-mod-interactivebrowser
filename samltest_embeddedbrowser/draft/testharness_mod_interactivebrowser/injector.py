@@ -2,14 +2,15 @@ from PyQt4.QtNetwork import QNetworkRequest, QNetworkAccessManager, QNetworkCook
 from PyQt4.QtCore import QUrl
 
 try:
-    from PyQt4.QtCore import QString
+	from PyQt4.QtCore import QString
 except ImportError:
-    # we are using Python3 so QString is not defined
-    QString = type("")
+	# we are using Python3 so QString is not defined
+	QString = type("")
 
 from PyQt4.QtCore import   QTextStream,  QVariant, QTimer, SIGNAL
 from PyQt4 import QtCore
 
+from http.cookiejar import CookieJar
 """
 	The pyqt bindings don't care much about our classes, so we have to
 	use some trickery to get around that limitations. And there are some
@@ -42,7 +43,8 @@ class InjectedQNetworkRequest(QNetworkRequest):
 	magic_query_key = QString('magic_injected')
 	magic_query_val = QString('4711')
 
-	def __init__(self, original_request_url):
+	def __init__(self, original_request):
+		original_request_url = original_request.get_full_url()
 		new_url =self.putMagicIntoThatUrlQt4(QUrl(original_request_url))
 		super(InjectedQNetworkRequest, self).__init__(new_url)
 
@@ -93,7 +95,6 @@ class InjectedNetworkReply(QNetworkReply):
 		return True
 
 	def readData(self, maxSize):
-
 		if self.offset < len(self.content):
 			end = min(self.offset + maxSize, len(self.content))
 			data = self.content[self.offset:end]
@@ -101,7 +102,52 @@ class InjectedNetworkReply(QNetworkReply):
 			return data
 
 
+class SniffingNetworkReply(QNetworkReply):
+	def __init__(self, parent, request, reply, operation):
+		QNetworkReply.__init__(self, parent)
+		content = "<html><head><title>Test</title></head><body>This is a test.</body></html>"
+		self.content = content
+		self.offset = 0
 
+		self.setHeader(QNetworkRequest.ContentTypeHeader, "text/html")
+		self.setHeader(QNetworkRequest.ContentLengthHeader, len(self.content))
+
+		self.open(self.ReadOnly | self.Unbuffered)
+		self.setUrl(QUrl(request.url()))
+
+		reply.finished.connect(self.onReplyFinished)
+	def abort(self):
+		pass
+	
+	def bytesAvailable(self):
+		c_bytes = len(self.content) - self.offset + QNetworkReply.bytesAvailable(self)
+		print "ba %s" % ( c_bytes, )
+		# NOTE:
+		# This works for Win:
+		#	  return len(self.content) - self.offset
+		# but it does not work under OS X.
+		# Solution which works for OS X and Win:
+		#	 return len(self.content) - self.offset + QNetworkReply.bytesAvailable(self)
+		return c_bytes
+
+	def isSequential(self):
+		return True
+
+	def readData(self, maxSize):
+		print "fooba2r"
+		if self.offset < len(self.content):
+			end = min(self.offset + maxSize, len(self.content))
+			data = self.content[self.offset:end]
+			self.offset = end
+			return data
+		
+
+	def onReplyFinished(self):
+		self.emitFinish()	
+	
+	def emitFinish(self):	
+		self.readyRead.emit()
+		self.finished.emit()
 
 """
 	The InjectedQNetworkAccessManager will create a InjectedNetworkReply if
@@ -115,14 +161,24 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 	def __init__(self, parent = None):
 		super(InjectedQNetworkAccessManager, self).__init__(parent)
 
-	def setInjectedResponse(self, response):
+	def setInjectedResponse(self, response, request):
 		self.response = response
+		self.request = request
 
 	def _getCookieHeader(self):
 		info = self.response
-		header = info.getheader('Set-Cookie')
-		if header:
-			return 'Set-Cookie: ' + header
+		cj = CookieJar()
+		cj.extract_cookies(self.response, self.request)
+		"""
+		tricky: exporting cookies from the jar. Needs extract_cookies
+			first to do some cj initialization
+		"""
+		cookies = cj.make_cookies(self.response, self.request)
+		attrs = cj._cookie_attrs(cookies)
+		
+		if attrs:
+			header = 'Set-Cookie: ' + "; ".join(attrs)
+			return header
 		else:
 			return None
 
@@ -171,15 +227,19 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 			self.setCookieJar(cookiejar)
 
 		else:
-			r = QNetworkAccessManager.createRequest(self, op, request, device)
+			original_r = QNetworkAccessManager.createRequest(self, op, request, device)
+			
+			r = SniffingNetworkReply(self, request, original_r, op)
 
-		r.finished.connect(self.checkAutoCloseUrls)
+		r.finished.connect(self.requestFinishedActions)
 
 		return r
 
 	def setAutoCloseUrls(self,autocloseurls):
 		self.autocloseurls = autocloseurls
 
+	def requestFinishedActions(self):
+		self.checkAutoCloseUrls()
 
 	def checkAutoCloseUrls(self):
 		sender = self.sender()
@@ -197,7 +257,6 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 		result = self.autocloseurls.check(url, http_status_result)
 		if result == 'OK':
 			self.autocloseOk.emit()
-		if result == 'FAILED':
+		if result == 'NOK':
 			self.autocloseFailed.emit()
-
 
