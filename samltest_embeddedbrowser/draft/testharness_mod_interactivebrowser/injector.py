@@ -13,11 +13,11 @@ from PyQt4.QtCore import   QTextStream,  QVariant, QTimer, SIGNAL, QByteArray
 from PyQt4 import QtCore
 
 from http.cookiejar import CookieJar
-import StringIO
-import mimetools
+#import StringIO
+#import mimetools
 
 install_aliases()
-from urllib import addinfourl
+# urllib import addinfourl
 """
 	The pyqt bindings don't care much about our classes, so we have to
 	use some trickery to get around that limitations. And there are some
@@ -122,17 +122,17 @@ class InjectedNetworkReply(QNetworkReply):
 class SniffingNetworkReply(QNetworkReply):
 	def __init__(self, parent, request, reply, operation):
 		self.sniffed_content = QByteArray()
-		
+
 		QNetworkReply.__init__(self, parent)
 		self.open(self.ReadOnly | self.Unbuffered)
 		self.setUrl(QUrl(request.url()))
 		self.offset = 0
-			
+
 		reply.finished.connect(self.onReplyFinished)
-		
+
 	def abort(self):
 		pass
-	
+
 	def bytesAvailable(self):
 		c_bytes = len(self.sniffed_data) - self.offset + QNetworkReply.bytesAvailable(self)
 		return c_bytes
@@ -149,21 +149,21 @@ class SniffingNetworkReply(QNetworkReply):
 
 	def onReplyFinished(self):
 		self.reply = self.sender()
-		
+
 
 		raw_header_pairs = self.reply.rawHeaderPairs()
 		for header in raw_header_pairs:
 			self.setRawHeader(header[0],header[1])
-		
-		http_status = self.reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)	
+
+		http_status = self.reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
 		self.setAttribute(QNetworkRequest.HttpStatusCodeAttribute, http_status)
-			
+
 		bytes_available = self.reply.bytesAvailable()
 		self.sniffed_data = self.reply.read(bytes_available + 512)
-		
+
 		self.readyRead.emit()
 		self.finished.emit()
-	
+
 	"""
 	not implemented now
 	def getUrllibResponse(self):
@@ -171,10 +171,10 @@ class SniffingNetworkReply(QNetworkReply):
 		raw_header_pairs = self.reply.rawHeaderPairs()
 		for header in raw_header_pairs:
 			output_file.write('%s: %s' % (header[0], header[1]))
-		output_file.write("\n")	
+		output_file.write("\n")
 		print output_file.getvalue()
-	"""	
-		
+	"""
+
 
 """
 	The InjectedQNetworkAccessManager will create a InjectedNetworkReply if
@@ -203,7 +203,7 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 		"""
 		cookies = cj.make_cookies(self.response, self.request)
 		attrs = cj._cookie_attrs(cookies)
-		
+
 		if attrs:
 			header = 'Set-Cookie: ' + "; ".join(attrs)
 			return header
@@ -253,7 +253,7 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 			default_cookie_domain = self._cookie_default_domain(request)
 			cookiejar = self._createCookieJarfromInjectedResponse(default_cookie_domain)
 			self.setCookieJar(cookiejar)
-			
+
 		else:
 			original_r = QNetworkAccessManager.createRequest(self, op, request, device)
 			original_r.sslErrors.connect(self.sslErrorHandler)

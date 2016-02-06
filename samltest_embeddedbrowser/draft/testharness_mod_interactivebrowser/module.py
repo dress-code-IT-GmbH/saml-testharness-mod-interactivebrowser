@@ -19,7 +19,7 @@ class HandlerResponse(object):
 		self.user_action = user_action
 		self.cookie_jar = cookie_jar
 		self.http_response = http_response
-		self.response = response		
+		self.response = response
 
 """
 
@@ -44,7 +44,7 @@ class ContentHandler(contenthandler.ContentHandler):
 		"""
 		if interactions:
 			raise NotImplementedError
-		
+
 		self.conv = conv
 		self.cjar = {}
 		self.features = {}
@@ -52,29 +52,29 @@ class ContentHandler(contenthandler.ContentHandler):
 		self.auto_close_urls = []
 		self.http_request = None
 		self.http_response = None
-		
+
 		self.last_response = None
-		
-	def handle_response(self, http_response, auto_close_urls, http_request, 
+
+	def handle_response(self, http_response, auto_close_urls, http_request,
 					conv=None, verify_ssl=True, cookie_jar=None):
-		
-		if self.cookie_jar:
+
+		if cookie_jar:
 			"""
 				TODO: Have a hybrid qt4, python-lib cookie_jar, that is
 				updated on every request
 			"""
 			raise NotImplementedError
-		
-	
+
+
 		if http_response is None:
 			return
-		
+
 		self.http_response = http_response
 		self.auto_close_urls = auto_close_urls
 		self.http_request = http_request
 		self.conv = conv
 		self.verify_ssl = verify_ssl
-		
+
 		return self._run()
 
 	def _run(self):
@@ -123,13 +123,13 @@ class ContentHandler(contenthandler.ContentHandler):
 		main_frame.show()
 
 		app.exec_()
-		
+
 		processed = False
 		if self.retval == 'OK' or self.retval == 'NOK':
 			processed = True
-		
+
 		handler_response = HandlerResponse(processed, user_action=self.retval)
-		
+
 		return handler_response
 
 
@@ -141,7 +141,7 @@ class ContentHandler(contenthandler.ContentHandler):
 	def button_failed(self):
 		self.retval = 'NOK'
 		QApplication.quit()
-		
+
 	def button_abort(self):
 		self.retval = 'aborted'
 		QApplication.quit()
