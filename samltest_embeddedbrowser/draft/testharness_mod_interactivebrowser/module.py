@@ -65,7 +65,6 @@ class ContentHandler(contenthandler.ContentHandler):
 			"""
 			raise NotImplementedError
 
-
 		if http_response is None:
 			return
 
