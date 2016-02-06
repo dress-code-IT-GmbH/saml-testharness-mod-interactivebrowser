@@ -7,7 +7,7 @@ except ImportError:
 	# we are using Python3 so QString is not defined
 	QString = type("")
 
-from PyQt4.QtCore import   QTextStream,  QVariant, QTimer, SIGNAL
+from PyQt4.QtCore import   QTextStream,  QVariant, QTimer, SIGNAL, QByteArray
 from PyQt4 import QtCore
 
 from http.cookiejar import CookieJar
@@ -104,45 +104,42 @@ class InjectedNetworkReply(QNetworkReply):
 
 class SniffingNetworkReply(QNetworkReply):
 	def __init__(self, parent, request, reply, operation):
+		self.sniffed_content = QByteArray()
 		QNetworkReply.__init__(self, parent)
-		content = "<html><head><title>Test</title></head><body>This is a test.</body></html>"
-		self.content = content
-		self.offset = 0
-
-		self.setHeader(QNetworkRequest.ContentTypeHeader, "text/html")
-		self.setHeader(QNetworkRequest.ContentLengthHeader, len(self.content))
-
+		
 		self.open(self.ReadOnly | self.Unbuffered)
 		self.setUrl(QUrl(request.url()))
 
+		
 		reply.finished.connect(self.onReplyFinished)
 	def abort(self):
 		pass
 	
 	def bytesAvailable(self):
-		c_bytes = len(self.content) - self.offset + QNetworkReply.bytesAvailable(self)
+		c_bytes = self.reply.bytesAvailable()
 		print "ba %s" % ( c_bytes, )
-		# NOTE:
-		# This works for Win:
-		#	  return len(self.content) - self.offset
-		# but it does not work under OS X.
-		# Solution which works for OS X and Win:
-		#	 return len(self.content) - self.offset + QNetworkReply.bytesAvailable(self)
 		return c_bytes
 
 	def isSequential(self):
 		return True
 
 	def readData(self, maxSize):
-		print "fooba2r"
-		if self.offset < len(self.content):
-			end = min(self.offset + maxSize, len(self.content))
-			data = self.content[self.offset:end]
-			self.offset = end
-			return data
+		print "fooba2r %s" % (maxSize, )
+		data = self.reply.read(maxSize)
+		#print self.reply
+		#print data
+		return data
 		
 
 	def onReplyFinished(self):
+		print ("fin!")
+		self.reply = self.sender()
+		raw_header_pairs = self.reply.rawHeaderPairs()
+		for header in raw_header_pairs:
+			self.setRawHeader(header[0],header[1])
+		
+		http_status = self.reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)	
+		self.setAttribute(QNetworkRequest.HttpStatusCodeAttribute, http_status)
 		self.emitFinish()	
 	
 	def emitFinish(self):	
@@ -245,7 +242,7 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 		sender = self.sender()
 		url = sender.url().toString()
 		http_status_pre = sender.attribute( QNetworkRequest.HttpStatusCodeAttribute)
-
+		print http_status_pre
 		try:
 			#python2
 			http_status = http_status_pre.toInt()

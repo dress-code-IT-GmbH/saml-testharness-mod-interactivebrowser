@@ -157,6 +157,7 @@ class AutoCloseUrls(object):
 	def _url_is_equal(self, url, path, status):
 		try:
 			#python2
+			print "p2"
 			if path.startsWith(url.path) and url.status == status:
 				return True
 		except AttributeError:
@@ -169,7 +170,7 @@ class AutoCloseUrls(object):
 
 	def check(self,path,status):
 		for u in self.urls:
-			print ("(%s ? %s + %s ? %s)" % ( u.path, path, u.status, status ))
+			print ("check (%s ? %s + %s ? %s)" % ( u.path, path, u.status, status ))
 			if self._url_is_equal(u, path, status):
 				if u.result:
 					return "OK"
