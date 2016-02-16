@@ -7,6 +7,9 @@ except ImportError:
 	# we are using Python3 so QString is not defined
 	QString = type("")
 
+from http.cookiejar import CookieJar
+
+
 from .injector import InjectedQNetworkRequest, InjectedQNetworkAccessManager
 from .gui import UrlInput
 
@@ -36,7 +39,7 @@ class HandlerResponse(object):
 """
 
 class ContentHandler(contenthandler.ContentHandler):
-	def __init__(self, interactions, conv=None):
+	def __init__(self, interactions, conv_log):
 		contenthandler.ContentHandler.__init__(self)
 		"""
 			this content handler does not support automatic interactions
@@ -45,7 +48,7 @@ class ContentHandler(contenthandler.ContentHandler):
 		if interactions:
 			raise NotImplementedError
 		
-		self.conv = conv
+		self.conv_log = conv_log
 		self.cjar = {}
 		self.features = {}
 		self.handler = None
@@ -55,31 +58,30 @@ class ContentHandler(contenthandler.ContentHandler):
 		
 		self.last_response = None
 		
-	def handle_response(self, http_response, auto_close_urls, http_request, 
-					conv=None, verify_ssl=True, cookie_jar=None):
+		self.cookie_jar = CookieJar()
 		
-		if self.cookie_jar:
-			"""
-				TODO: Have a hybrid qt4, python-lib cookie_jar, that is
-				updated on every request
-			"""
-			raise NotImplementedError
+	def handle_response(self, conv_log, auto_close_urls, verify_ssl=True, cookie_jar=None):
 		
-	
-		if http_response is None:
-			return
+		if cookie_jar:
+			self.cookie_jar = cookie_jar
 		
-		self.http_response = http_response
 		self.auto_close_urls = auto_close_urls
-		self.http_request = http_request
-		self.conv = conv
+		self.conv_log = conv_log
 		self.verify_ssl = verify_ssl
 		
 		return self._run()
 
+
+	def _select_handler_response(self):
+		responses = self.conv_log.last_failed_next_handler_responses('text/html')
+		selected_handler_response = response[0]
+		
+
 	def _run(self):
 		self.retval = 'NOK'
 
+
+		selected_handler_response = self._select_handler_response()
 
 		request = InjectedQNetworkRequest(self.http_request)
 
