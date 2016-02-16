@@ -1,16 +1,23 @@
+"""
+	Proposals for framework addons.
+	
+	This classes are meant as blueprints for the expansion of framework
+	classes.	
+"""
+
 from future.standard_library import install_aliases
-
-import pprint
-from boto.dynamodb.condition import NULL
-
+import time
 
 """
 	My CookieJar
 	
 		Extending the httplib CookieJar to return a http header line,
-		which allows for further conversion.
+		which allows for further conversion of cookies, relevant to
+		a request.
 """
 from http.cookiejar import CookieJar
+
+import pprint
 class MyCookieJar(CookieJar):
 	
 	def __init__(self, policy=None):
@@ -26,7 +33,9 @@ class MyCookieJar(CookieJar):
 		self._cookies_lock.acquire()
 		try:
 			self._policy._now = self._now = int(time.time())
-			cookies = self._cookies_for_request(urllib_response)
+			cookies = self._cookies_for_request(urllib_request)
+			#pprint.pprint(self._cookies)
+			
 			attrs = self._cookie_attrs(cookies)
 			if attrs:
 				header = 'Set-Cookie: ' + "; ".join(attrs)
@@ -39,6 +48,21 @@ class MyCookieJar(CookieJar):
 		self.clear_expired_cookies()
 		return header
 
+	def http_header_attrs(self,urllib_request):
+		self._cookies_lock.acquire()
+		attrs = None
+		try:
+			self._policy._now = self._now = int(time.time())
+			cookies = self._cookies_for_request(urllib_request)
+			pprint.pprint(self._cookies)
+			
+			attrs = self._cookie_attrs(cookies)		
+	
+		finally:
+			self._cookies_lock.release()
+
+		self.clear_expired_cookies()
+		return attrs
 
 	
 """
@@ -85,9 +109,6 @@ class MyHandlerResponse(contenthandler.HandlerResponse):
 				 cookie_jar, urllib_response, response)
 	
 
-	def get_content_handler_name(self):
-		return self.content_handler_name
-
 	def response_content_type(self):
 		"""
 			will return the native content type header, which could include other informations
@@ -97,7 +118,6 @@ class MyHandlerResponse(contenthandler.HandlerResponse):
 			return None
 		
 		info = self.urllib_response.info()
-		#pprint.pprint(info)
 		content_type = info.getheader('Content-Type')
 		return content_type
 
@@ -137,7 +157,7 @@ class ConvLog(object):
 			last_handler_response = self.response_log[-1]
 		except KeyError:
 			return NULL
-		name = last_handler_response.get_content_handler_name()	
+		name = last_handler_response.content_handler_name	
 		return name
 		
 	def last_failed_next_handler_responses(self, content_type):
@@ -156,7 +176,7 @@ class ConvLog(object):
 	
 	
 		for handler_response in reversed(self.response_log):
-			this_content_handler_name = handler_response.get_content_handler_name()
+			this_content_handler_name = handler_response.content_handler_name
 			if this_content_handler_name != last_content_handler_name:
 				break
 			if handler_response.processing_status_is(MyHandlerResponse.FAILED_NEXT):

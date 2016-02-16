@@ -18,6 +18,7 @@ import mimetools
 
 install_aliases()
 from urllib import addinfourl
+import pprint
 """
 	The pyqt bindings don't care much about our classes, so we have to
 	use some trickery to get around that limitations. And there are some
@@ -50,8 +51,8 @@ class InjectedQNetworkRequest(QNetworkRequest):
 	magic_query_key = QString('magic_injected')
 	magic_query_val = QString('4711')
 
-	def __init__(self, original_request):
-		original_request_url = original_request.get_full_url()
+	def __init__(self, original_urllib_request):
+		original_request_url = original_urllib_request.get_full_url()
 		new_url =self.putMagicIntoThatUrlQt4(QUrl(original_request_url))
 		super(InjectedQNetworkRequest, self).__init__(new_url)
 
@@ -189,19 +190,20 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 		super(InjectedQNetworkAccessManager, self).__init__(parent)
 		self.ignore_ssl_errors = ignore_ssl_errors
 
-	def setInjectedResponse(self, response, request):
-		self.response = response
-		self.request = request
+	def setInjectedResponse(self, urllib_request, urllib_response, http_cookie_jar):
+		self.urllib_request = urllib_request
+		self.urllib_response = urllib_response
+		self.http_cookie_jar = http_cookie_jar
 
 	def _getCookieHeader(self):
-		info = self.response
+		info = self.urllib_response
 		cj = CookieJar()
-		cj.extract_cookies(self.response, self.request)
+		cj.extract_cookies(self.urllib_response, self.urllib_request)
 		"""
 		tricky: exporting cookies from the jar. Needs extract_cookies
 			first, to do some cj initialization
 		"""
-		cookies = cj.make_cookies(self.response, self.request)
+		cookies = cj.make_cookies(self.urllib_response, self.urllib_request)
 		attrs = cj._cookie_attrs(cookies)
 		
 		if attrs:
@@ -220,11 +222,11 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 		if not cookie_header:
 			return cj
 
-		#print (cookie_header)
+		print (cookie_header)
 
 		tmp_cookieList = QNetworkCookie.parseCookies(cookie_header)
 
-		#print (tmp_cookieList)
+		print (tmp_cookieList)
 
 		if not tmp_cookieList:
 			return cj
@@ -244,14 +246,36 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 		url = request.url()
 		return url.host()
 
+	def _import_cookie_jar(self,http_cookie_jar,default_domain):
+		#ugly, but works around bugs in parseCookies
+		cookies = []
+
+		cj = QNetworkCookieJar()
+		cookie_attrs = http_cookie_jar.http_header_attrs(self.urllib_request)
+		
+		for cookie_attr in cookie_attrs:
+			# parsing every attribute on its own because parser seems to be *+§##%X$!
+			tmp_cookie_list = QNetworkCookie.parseCookies(cookie_attr)
+			if tmp_cookie_list:
+				cookies.append(tmp_cookie_list[0])
+		
+
+		for tmp_cookie in cookies:
+			if not tmp_cookie.domain():
+				tmp_cookie.setDomain(QString(default_domain))
+
+		cj.setAllCookies(cookies)
+		return cj
 
 	def createRequest(self, op, request, device = None):
-
+		
 		if InjectedQNetworkRequest.thatRequestHasMagicQt4(request):
-			r =  InjectedNetworkReply(self, request.url(), self.response.read(), op)
+			r =  InjectedNetworkReply(self, request.url(), self.urllib_response.read(), op)
 
 			default_cookie_domain = self._cookie_default_domain(request)
-			cookiejar = self._createCookieJarfromInjectedResponse(default_cookie_domain)
+			
+			#cookiejar = self._createCookieJarfromInjectedResponse(default_cookie_domain)
+			cookiejar = self._import_cookie_jar(self.http_cookie_jar, default_cookie_domain)
 			self.setCookieJar(cookiejar)
 			
 		else:

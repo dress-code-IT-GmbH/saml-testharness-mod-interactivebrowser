@@ -7,7 +7,7 @@ except ImportError:
 	# we are using Python3 so QString is not defined
 	QString = type("")
 
-from http.cookiejar import CookieJar
+from fwclasses import MyCookieJar
 
 
 from .injector import InjectedQNetworkRequest, InjectedQNetworkAccessManager
@@ -58,7 +58,7 @@ class ContentHandler(contenthandler.ContentHandler):
 		
 		self.last_response = None
 		
-		self.cookie_jar = CookieJar()
+		self.cookie_jar = MyCookieJar()
 		
 	def handle_response(self, conv_log, auto_close_urls, verify_ssl=True, cookie_jar=None):
 		
@@ -74,19 +74,27 @@ class ContentHandler(contenthandler.ContentHandler):
 
 	def _select_handler_response(self):
 		responses = self.conv_log.last_failed_next_handler_responses('text/html')
-		selected_handler_response = response[0]
-		
+		if responses:
+			return responses[0]
+		else:
+			return None
 
 	def _run(self):
 		self.retval = 'NOK'
 
 
-		selected_handler_response = self._select_handler_response()
+		self.selected_handler_response = self._select_handler_response()
+		if not self.selected_handler_response:
+			return None
 
-		request = InjectedQNetworkRequest(self.http_request)
+		injected_qt_request = InjectedQNetworkRequest(self.selected_handler_response.urllib_request)
 
 		nam = InjectedQNetworkAccessManager(ignore_ssl_errors=True)
-		nam.setInjectedResponse(self.http_response, self.http_request)
+		nam.setInjectedResponse(
+			self.selected_handler_response.urllib_request,
+			self.selected_handler_response.urllib_response,
+			self.cookie_jar
+			)
 		nam.setAutoCloseUrls(self.auto_close_urls)
 
 		nam.autocloseOk.connect(self.button_ok)
@@ -99,7 +107,7 @@ class ContentHandler(contenthandler.ContentHandler):
 		page = browser.page()
 		page.setNetworkAccessManager(nam)
 
-		browser.load(request, nam.GetOperation)
+		browser.load(injected_qt_request, nam.GetOperation)
 
 
 
