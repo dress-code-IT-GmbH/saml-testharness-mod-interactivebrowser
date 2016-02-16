@@ -195,77 +195,33 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 		self.urllib_response = urllib_response
 		self.http_cookie_jar = http_cookie_jar
 
-	def _getCookieHeader(self):
-		info = self.urllib_response
-		cj = CookieJar()
-		cj.extract_cookies(self.urllib_response, self.urllib_request)
-		"""
-		tricky: exporting cookies from the jar. Needs extract_cookies
-			first, to do some cj initialization
-		"""
-		cookies = cj.make_cookies(self.urllib_response, self.urllib_request)
-		attrs = cj._cookie_attrs(cookies)
-		
-		if attrs:
-			header = 'Set-Cookie: ' + "; ".join(attrs)
-			return header
-		else:
-			return None
-
-	def _createCookieJarfromInjectedResponse(self, default_domain):
-		#ugly, but works around bugs in parseCookies
-		cookies = []
-
-		cj = QNetworkCookieJar()
-
-		cookie_header = self._getCookieHeader()
-		if not cookie_header:
-			return cj
-
-		print (cookie_header)
-
-		tmp_cookieList = QNetworkCookie.parseCookies(cookie_header)
-
-		print (tmp_cookieList)
-
-		if not tmp_cookieList:
-			return cj
-
-		for tmp_cookie in tmp_cookieList:
-			if not tmp_cookie.domain():
-				tmp_cookie.setDomain(QString(default_domain))
-
-			cookies.append( tmp_cookie )
-
-		cookies = cookies + tmp_cookieList
-
-		cj.setAllCookies(cookies)
-		return cj
-
 	def _cookie_default_domain(self,request):
 		url = request.url()
 		return url.host()
 
 	def _import_cookie_jar(self,http_cookie_jar,default_domain):
-		#ugly, but works around bugs in parseCookies
-		cookies = []
 
 		cj = QNetworkCookieJar()
 		cookie_attrs = http_cookie_jar.http_header_attrs(self.urllib_request)
-		
-		for cookie_attr in cookie_attrs:
-			# parsing every attribute on its own because parser seems to be *+§##%X$!
-			tmp_cookie_list = QNetworkCookie.parseCookies(cookie_attr)
-			if tmp_cookie_list:
-				cookies.append(tmp_cookie_list[0])
-		
-
-		for tmp_cookie in cookies:
-			if not tmp_cookie.domain():
-				tmp_cookie.setDomain(QString(default_domain))
-
+		cookies = self._parse_cookie_attribs_into_QtCookies_list(cookie_attrs, default_domain)
 		cj.setAllCookies(cookies)
 		return cj
+
+	def _parse_cookie_attribs_into_QtCookies_list(self, cookie_attrs, default_domain):
+		#ugly, but works around bugs in parseCookies
+		cookies = []
+		
+		for cookie_attr in cookie_attrs:
+			# parsing every attribute on its own because parser seems to be <censored>!
+			tmp_cookie_list = QNetworkCookie.parseCookies(cookie_attr)
+			if tmp_cookie_list:
+				tmp_cookie = tmp_cookie_list[0]
+				if not tmp_cookie.domain():
+					tmp_cookie.setDomain(QString(default_domain))
+				cookies.append(tmp_cookie)
+		
+		return cookies
+				
 
 	def createRequest(self, op, request, device = None):
 		

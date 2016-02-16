@@ -17,7 +17,7 @@ import time
 """
 from http.cookiejar import CookieJar
 
-import pprint
+#import pprint
 class MyCookieJar(CookieJar):
 	
 	def __init__(self, policy=None):
@@ -25,28 +25,9 @@ class MyCookieJar(CookieJar):
 
 
 	"""
-	Construction of a http header line. Note that the http.cookiejar lib
+	http header attributes. Note that the http.cookiejar lib
 	must construct the headers out of the jar for a given request.
 	"""
-	def http_header_line(self, urllib_request):
-
-		self._cookies_lock.acquire()
-		try:
-			self._policy._now = self._now = int(time.time())
-			cookies = self._cookies_for_request(urllib_request)
-			#pprint.pprint(self._cookies)
-			
-			attrs = self._cookie_attrs(cookies)
-			if attrs:
-				header = 'Set-Cookie: ' + "; ".join(attrs)
-			else:
-				header = None			
-	
-		finally:
-			self._cookies_lock.release()
-
-		self.clear_expired_cookies()
-		return header
 
 	def http_header_attrs(self,urllib_request):
 		self._cookies_lock.acquire()
@@ -54,7 +35,6 @@ class MyCookieJar(CookieJar):
 		try:
 			self._policy._now = self._now = int(time.time())
 			cookies = self._cookies_for_request(urllib_request)
-			pprint.pprint(self._cookies)
 			
 			attrs = self._cookie_attrs(cookies)		
 	
