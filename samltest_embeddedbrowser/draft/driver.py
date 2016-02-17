@@ -11,34 +11,23 @@ Handling http post is on the todo list
 from future.standard_library import install_aliases
 
 from testharness_mod_interactivebrowser.module import ContentHandler, AutoCloseUrls
+import mechanize
 
 install_aliases()
-<<<<<<< HEAD
 from urllib.request import urlopen
 from http.cookiejar import CookieJar
 
 
 from fwclasses import MyHandlerResponse, ConvLog, MyCookieJar
-=======
-from urllib.request import Request, urlopen
->>>>>>> c067f38c411a881905999d5677e89277bd689561
 
 target_path =  "http://www.warwaris.at/brtest/"
 
 
 if __name__ == "__main__":
 
-<<<<<<< HEAD
 
 	conv_log = ConvLog()
 	cookie_jar = MyCookieJar()
-=======
-	request_url = target_path + "brtest.php"
-	#request_url = "https://www.cacert.org/"
-
-	http_request = Request(request_url)
-	http_response = urlopen(http_request)
->>>>>>> c067f38c411a881905999d5677e89277bd689561
 
 	request_url = target_path + "brtest.php"
 	#request_url = "https://www.cacert.org/"
@@ -69,3 +58,4 @@ if __name__ == "__main__":
 	result = test.handle_response(conv_log, auto_close_urls, verify_ssl=True, cookie_jar=cookie_jar)
 
 	print ( "Test result user action: " + result.user_action )
+	
