@@ -4,6 +4,9 @@ Demo driver for the interactive browser test module.
 test_target: The URL that will be queried. The response will then be given
 to the interactive browser to proceed.
 
+Limitations:
+Handling http post is on the todo list
+
 """
 from future.standard_library import install_aliases
 

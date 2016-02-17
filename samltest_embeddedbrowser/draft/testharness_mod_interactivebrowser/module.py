@@ -14,6 +14,7 @@ from .injector import InjectedQNetworkRequest, InjectedQNetworkAccessManager
 from .gui import UrlInput
 
 from aatest import contenthandler
+import pprint
 
 class HandlerResponse(object):
 	def __init__(self, content_processed, user_action='',
@@ -81,7 +82,8 @@ class ContentHandler(contenthandler.ContentHandler):
 
 	def _run(self):
 		self.retval = 'NOK'
-
+		
+		self.handler_response_cache = []
 
 		self.selected_handler_response = self._select_handler_response()
 		if not self.selected_handler_response:
@@ -89,25 +91,27 @@ class ContentHandler(contenthandler.ContentHandler):
 
 		injected_qt_request = InjectedQNetworkRequest(self.selected_handler_response.urllib_request)
 
-		nam = InjectedQNetworkAccessManager(ignore_ssl_errors=True)
-		nam.setInjectedResponse(
+		self.nam = InjectedQNetworkAccessManager(ignore_ssl_errors=True)
+		self.nam.setInjectedResponse(
 			self.selected_handler_response.urllib_request,
 			self.selected_handler_response.urllib_response,
 			self.cookie_jar
 			)
-		nam.setAutoCloseUrls(self.auto_close_urls)
+		self.nam.setAutoCloseUrls(self.auto_close_urls)
 
-		nam.autocloseOk.connect(self.button_ok)
-		nam.autocloseFailed.connect(self.button_failed)
+		self.nam.autocloseOk.connect(self.button_ok)
+		self.nam.autocloseFailed.connect(self.button_failed)
+		
+		self.nam.requestFinishing.connect(self._update_handler_results)
 
 		app = QApplication([])
 		grid = QGridLayout()
 		browser = QWebView()
 
 		page = browser.page()
-		page.setNetworkAccessManager(nam)
+		page.setNetworkAccessManager(self.nam)
 
-		browser.load(injected_qt_request, nam.GetOperation)
+		browser.load(injected_qt_request, self.nam.GetOperation)
 
 
 
@@ -134,6 +138,8 @@ class ContentHandler(contenthandler.ContentHandler):
 
 		app.exec_()
 		
+		#pprint.pprint (self.cookie_jar._cookies)
+		
 		processed = False
 		if self.retval == 'OK' or self.retval == 'NOK':
 			processed = True
@@ -142,6 +148,9 @@ class ContentHandler(contenthandler.ContentHandler):
 		
 		return handler_response
 
+	def _update_handler_results(self):
+		
+		print "update cookies!"
 
 	def button_ok(self):
 		self.retval = 'OK'

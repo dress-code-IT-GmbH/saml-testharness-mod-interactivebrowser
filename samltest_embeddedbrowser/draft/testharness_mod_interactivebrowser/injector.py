@@ -18,6 +18,12 @@ import mimetools
 
 install_aliases()
 from urllib import addinfourl
+from urllib.request import Request as UrllibRequest
+from urllib.response import addinfourl
+import email
+
+from fwclasses import MyHandlerResponse
+
 import pprint
 """
 	The pyqt bindings don't care much about our classes, so we have to
@@ -74,10 +80,13 @@ class InjectedQNetworkRequest(QNetworkRequest):
 	The InjectedNetworkReply will be given to the browser.
 """
 class InjectedNetworkReply(QNetworkReply):
-	def __init__(self, parent, url, content, operation):
+	def __init__(self, parent, url, content, operation, urllib_request, urllib_response):
 		QNetworkReply.__init__(self, parent)
 		self.content = content
 		self.offset = 0
+		
+		self.urllib_request = urllib_request
+		self.urllib_response = urllib_response
 
 		self.setHeader(QNetworkRequest.ContentTypeHeader, "text/html")
 		self.setHeader(QNetworkRequest.ContentLengthHeader, len(self.content))
@@ -110,10 +119,6 @@ class InjectedNetworkReply(QNetworkReply):
 			return data
 
 
-
-	def getUrllibResponse(self):
-		return None
-
 """
 	The SniffingNetworkReply stores the content.
 	TODO: As this is using up twice the mem for the response: make this just store the
@@ -122,11 +127,12 @@ class InjectedNetworkReply(QNetworkReply):
 
 class SniffingNetworkReply(QNetworkReply):
 	def __init__(self, parent, request, reply, operation):
-		self.sniffed_content = QByteArray()
+		self.sniffed_data = QByteArray()
 		
 		QNetworkReply.__init__(self, parent)
 		self.open(self.ReadOnly | self.Unbuffered)
 		self.setUrl(QUrl(request.url()))
+		self.setRequest(request)
 		self.offset = 0
 			
 		reply.finished.connect(self.onReplyFinished)
@@ -165,18 +171,6 @@ class SniffingNetworkReply(QNetworkReply):
 		self.readyRead.emit()
 		self.finished.emit()
 	
-	"""
-	not implemented now
-	def getUrllibResponse(self):
-		output_file = StringIO.StringIO()
-		raw_header_pairs = self.reply.rawHeaderPairs()
-		for header in raw_header_pairs:
-			output_file.write('%s: %s' % (header[0], header[1]))
-		output_file.write("\n")	
-		print output_file.getvalue()
-	"""	
-		
-
 """
 	The InjectedQNetworkAccessManager will create a InjectedNetworkReply if
 	the Request is an InjectedQNetworkRequest to prefill the browser with
@@ -185,10 +179,15 @@ class SniffingNetworkReply(QNetworkReply):
 class InjectedQNetworkAccessManager(QNetworkAccessManager):
 	autocloseOk = QtCore.pyqtSignal()
 	autocloseFailed = QtCore.pyqtSignal()
+	
+	requestFinishing = QtCore.pyqtSignal()
 
 	def __init__(self, parent = None, ignore_ssl_errors=False):
 		super(InjectedQNetworkAccessManager, self).__init__(parent)
 		self.ignore_ssl_errors = ignore_ssl_errors
+		self.urllib_request = None
+		self.urllib_response = None
+		self.http_cookie_jar = None
 
 	def setInjectedResponse(self, urllib_request, urllib_response, http_cookie_jar):
 		self.urllib_request = urllib_request
@@ -224,17 +223,14 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 				
 
 	def createRequest(self, op, request, device = None):
-		
 		if InjectedQNetworkRequest.thatRequestHasMagicQt4(request):
-			r =  InjectedNetworkReply(self, request.url(), self.urllib_response.read(), op)
-
-			default_cookie_domain = self._cookie_default_domain(request)
-			
-			#cookiejar = self._createCookieJarfromInjectedResponse(default_cookie_domain)
+			r =  InjectedNetworkReply(self, request.url(), self.urllib_response.read(), op, self.urllib_request, self.urllib_request)
+			default_cookie_domain = self._cookie_default_domain(request)			
 			cookiejar = self._import_cookie_jar(self.http_cookie_jar, default_cookie_domain)
-			self.setCookieJar(cookiejar)
-			
+			self.setCookieJar(cookiejar)		
 		else:
+			self.urllib_response = None
+			self.urllib_request = None
 			original_r = QNetworkAccessManager.createRequest(self, op, request, device)
 			original_r.sslErrors.connect(self.sslErrorHandler)
 			r = SniffingNetworkReply(self, request, original_r, op)
@@ -256,17 +252,48 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 	def setAutoCloseUrls(self,autocloseurls):
 		self.autocloseurls = autocloseurls
 
+	def _create_urllib_data(self, qt_network_reply):
+		qt_network_request = qt_network_reply.request()
+				
+		request_url = qt_network_request.url()
+		request_headers = {}
+		for header_name in qt_network_request.rawHeaderList():
+			header = qt_network_request.rawHeader(header_name)
+			request_headers.update({header_name.data():header.data()})
+		
+		url = request_url.toEncoded().data()
+		self.urllib_request = UrllibRequest(url, headers=request_headers)
+		
+		output_file = StringIO.StringIO()
+		raw_header_pairs = qt_network_reply.rawHeaderPairs()
+		headers = []
+		for header in raw_header_pairs:
+			hd_string = '%s: %s' % (header[0], header[1])
+			output_file.write(hd_string)
+			headers.append(hd_string)
+		output_file.write("\n")
+		output_file.write(qt_network_reply.sniffed_data)
+		
+		headers_mstr = email.message_from_string('\n'.join(headers))
+
+		origurl = qt_network_reply.url().toEncoded().data()
+
+		self.urllib_response = addinfourl(output_file, headers_mstr, origurl)
+		
+
 	def requestFinishedActions(self):
-		#self.processReply()
+		qt_network_reply = self.sender()
+		
+		try:
+			self.urllib_request = qt_network_reply.urllib_request
+			self.urllib_response = qt_network_reply.urllib_response
+		except AttributeError:
+			self._create_urllib_data(qt_network_reply)
+
+		self.requestFinishing.emit()
 		self.checkAutoCloseUrls()
 
-	def processReply(self):
-		raise notImplementedError()
-		"""
-		returning urllib response is not implemented now
-		"""
-		reply = self.sender()
-		urrlib_response = reply.getUrllibResponse()
+
 
 	def checkAutoCloseUrls(self):
 		sender = self.sender()
