@@ -23,7 +23,7 @@ class HandlerResponse(object):
 		self.user_action = user_action
 		self.cookie_jar = cookie_jar
 		self.http_response = http_response
-		self.response = response		
+		self.response = response
 
 """
 
@@ -48,16 +48,22 @@ class ContentHandler(contenthandler.ContentHandler):
 		"""
 		if interactions:
 			raise NotImplementedError
+<<<<<<< HEAD
 		
 		self.conv_log = conv_log
+=======
+
+		self.conv = conv
+>>>>>>> c067f38c411a881905999d5677e89277bd689561
 		self.cjar = {}
 		self.features = {}
 		self.handler = None
 		self.auto_close_urls = []
 		self.http_request = None
 		self.http_response = None
-		
+
 		self.last_response = None
+<<<<<<< HEAD
 		
 		self.cookie_jar = MyCookieJar()
 		
@@ -66,10 +72,27 @@ class ContentHandler(contenthandler.ContentHandler):
 		if cookie_jar:
 			self.cookie_jar = cookie_jar
 		
+=======
+
+	def handle_response(self, http_response, auto_close_urls, http_request,
+					conv=None, verify_ssl=True, cookie_jar=None):
+
+		if cookie_jar:
+			"""
+				TODO: Have a hybrid qt4, python-lib cookie_jar, that is
+				updated on every request
+			"""
+			raise NotImplementedError
+
+		if http_response is None:
+			return
+
+		self.http_response = http_response
+>>>>>>> c067f38c411a881905999d5677e89277bd689561
 		self.auto_close_urls = auto_close_urls
 		self.conv_log = conv_log
 		self.verify_ssl = verify_ssl
-		
+
 		return self._run()
 
 
@@ -137,15 +160,19 @@ class ContentHandler(contenthandler.ContentHandler):
 		main_frame.show()
 
 		app.exec_()
+<<<<<<< HEAD
 		
 		#pprint.pprint (self.cookie_jar._cookies)
 		
+=======
+
+>>>>>>> c067f38c411a881905999d5677e89277bd689561
 		processed = False
 		if self.retval == 'OK' or self.retval == 'NOK':
 			processed = True
-		
+
 		handler_response = HandlerResponse(processed, user_action=self.retval)
-		
+
 		return handler_response
 
 	def _update_handler_results(self):
@@ -160,7 +187,7 @@ class ContentHandler(contenthandler.ContentHandler):
 	def button_failed(self):
 		self.retval = 'NOK'
 		QApplication.quit()
-		
+
 	def button_abort(self):
 		self.retval = 'aborted'
 		QApplication.quit()

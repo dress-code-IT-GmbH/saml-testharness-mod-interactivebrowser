@@ -13,10 +13,11 @@ from PyQt4.QtCore import   QTextStream,  QVariant, QTimer, SIGNAL, QByteArray
 from PyQt4 import QtCore
 
 from http.cookiejar import CookieJar
-import StringIO
-import mimetools
+#import StringIO
+#import mimetools
 
 install_aliases()
+<<<<<<< HEAD
 from urllib import addinfourl
 from urllib.request import Request as UrllibRequest
 from urllib.response import addinfourl
@@ -25,6 +26,9 @@ import email
 from fwclasses import MyHandlerResponse
 
 import pprint
+=======
+# urllib import addinfourl
+>>>>>>> c067f38c411a881905999d5677e89277bd689561
 """
 	The pyqt bindings don't care much about our classes, so we have to
 	use some trickery to get around that limitations. And there are some
@@ -127,19 +131,24 @@ class InjectedNetworkReply(QNetworkReply):
 
 class SniffingNetworkReply(QNetworkReply):
 	def __init__(self, parent, request, reply, operation):
+<<<<<<< HEAD
 		self.sniffed_data = QByteArray()
 		
+=======
+		self.sniffed_content = QByteArray()
+
+>>>>>>> c067f38c411a881905999d5677e89277bd689561
 		QNetworkReply.__init__(self, parent)
 		self.open(self.ReadOnly | self.Unbuffered)
 		self.setUrl(QUrl(request.url()))
 		self.setRequest(request)
 		self.offset = 0
-			
+
 		reply.finished.connect(self.onReplyFinished)
-		
+
 	def abort(self):
 		pass
-	
+
 	def bytesAvailable(self):
 		c_bytes = len(self.sniffed_data) - self.offset + QNetworkReply.bytesAvailable(self)
 		return c_bytes
@@ -156,21 +165,37 @@ class SniffingNetworkReply(QNetworkReply):
 
 	def onReplyFinished(self):
 		self.reply = self.sender()
-		
+
 
 		raw_header_pairs = self.reply.rawHeaderPairs()
 		for header in raw_header_pairs:
 			self.setRawHeader(header[0],header[1])
-		
-		http_status = self.reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)	
+
+		http_status = self.reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
 		self.setAttribute(QNetworkRequest.HttpStatusCodeAttribute, http_status)
-			
+
 		bytes_available = self.reply.bytesAvailable()
 		self.sniffed_data = self.reply.read(bytes_available + 512)
-		
+
 		self.readyRead.emit()
 		self.finished.emit()
+<<<<<<< HEAD
 	
+=======
+
+	"""
+	not implemented now
+	def getUrllibResponse(self):
+		output_file = StringIO.StringIO()
+		raw_header_pairs = self.reply.rawHeaderPairs()
+		for header in raw_header_pairs:
+			output_file.write('%s: %s' % (header[0], header[1]))
+		output_file.write("\n")
+		print output_file.getvalue()
+	"""
+
+
+>>>>>>> c067f38c411a881905999d5677e89277bd689561
 """
 	The InjectedQNetworkAccessManager will create a InjectedNetworkReply if
 	the Request is an InjectedQNetworkRequest to prefill the browser with
@@ -189,10 +214,33 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 		self.urllib_response = None
 		self.http_cookie_jar = None
 
+<<<<<<< HEAD
 	def setInjectedResponse(self, urllib_request, urllib_response, http_cookie_jar):
 		self.urllib_request = urllib_request
 		self.urllib_response = urllib_response
 		self.http_cookie_jar = http_cookie_jar
+=======
+	def setInjectedResponse(self, response, request):
+		self.response = response
+		self.request = request
+
+	def _getCookieHeader(self):
+		info = self.response
+		cj = CookieJar()
+		cj.extract_cookies(self.response, self.request)
+		"""
+		tricky: exporting cookies from the jar. Needs extract_cookies
+			first, to do some cj initialization
+		"""
+		cookies = cj.make_cookies(self.response, self.request)
+		attrs = cj._cookie_attrs(cookies)
+
+		if attrs:
+			header = 'Set-Cookie: ' + "; ".join(attrs)
+			return header
+		else:
+			return None
+>>>>>>> c067f38c411a881905999d5677e89277bd689561
 
 	def _cookie_default_domain(self,request):
 		url = request.url()
@@ -224,10 +272,19 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 
 	def createRequest(self, op, request, device = None):
 		if InjectedQNetworkRequest.thatRequestHasMagicQt4(request):
+<<<<<<< HEAD
 			r =  InjectedNetworkReply(self, request.url(), self.urllib_response.read(), op, self.urllib_request, self.urllib_request)
 			default_cookie_domain = self._cookie_default_domain(request)			
 			cookiejar = self._import_cookie_jar(self.http_cookie_jar, default_cookie_domain)
 			self.setCookieJar(cookiejar)		
+=======
+			r =  InjectedNetworkReply(self, request.url(), self.response.read(), op)
+
+			default_cookie_domain = self._cookie_default_domain(request)
+			cookiejar = self._createCookieJarfromInjectedResponse(default_cookie_domain)
+			self.setCookieJar(cookiejar)
+
+>>>>>>> c067f38c411a881905999d5677e89277bd689561
 		else:
 			self.urllib_response = None
 			self.urllib_request = None
