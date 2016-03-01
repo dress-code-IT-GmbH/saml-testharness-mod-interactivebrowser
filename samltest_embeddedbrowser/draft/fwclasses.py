@@ -7,7 +7,7 @@
 
 #from future.standard_library import install_aliases
 import time
-
+from aatest import events
 """
 	My CookieJar
 
@@ -118,12 +118,24 @@ class MyHandlerResponse(contenthandler.HandlerResponse):
 		"""
 		raise NotImplementedError
 
+	def debug_string(self):
+		rstr = "%s: %s: %s" % (self.content_handler_name,
+					self.processing_status,
+					self.urllib_response.geturl()
+					)
+		return rstr
+
 """
 	I feel i haven't dug enough into the usage of Conversation to modify it, so this is just the
 	blueprint of the added functionality, exposed to test handlers.
 
 	To make replacement easier, this "conversation" is named conv_log throughout the code
 """
+EV_FAILED_HANDLER_RESPONSE = 'failed handler response'
+
+class MyEvents(events.Events):
+	pass
+
 class ConvLog(object):
 	def __init__(self):
 		self.response_log = []
@@ -165,4 +177,6 @@ class ConvLog(object):
 
 		return filtered_responses
 
-
+	def debug_string(self):
+		for entry in self.response_log:
+			entry.debug_string()

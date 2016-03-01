@@ -8,22 +8,16 @@ except ImportError:
 	QString = type("")
 
 from fwclasses import MyCookieJar
-
+import fwclasses
+import aatest.events
 
 from .injector import InjectedQNetworkRequest, InjectedQNetworkAccessManager
 from .gui import UrlInput
 
+import time
+
 from aatest import contenthandler
 import pprint
-
-class HandlerResponse(object):
-	def __init__(self, content_processed, user_action='',
-				cookie_jar=None, http_response=None, response=None):
-		self.content_processed = content_processed
-		self.user_action = user_action
-		self.cookie_jar = cookie_jar
-		self.http_response = http_response
-		self.response = response
 
 """
 
@@ -59,48 +53,43 @@ class ContentHandler(contenthandler.ContentHandler):
 
 		self.last_response = None
 
-		self.cookie_jar = MyCookieJar()
+		self.cookie_jar = fwclasses.MyCookieJar()
 
-	def handle_response(self, conv_log, auto_close_urls, verify_ssl=True, cookie_jar=None):
+	def handle_response(self, urllib_request, urllib_response, events, auto_close_urls, verify_ssl=True, cookie_jar=None):
 
 		if cookie_jar:
 			self.cookie_jar = cookie_jar
 
+		if not urllib_request:
+			raise Exception('Parameter error: urllib_request is not set')
+		if not urllib_response:
+			raise Exception('Parameter error: urllib_response is not set')
+
 		self.auto_close_urls = auto_close_urls
-		self.conv_log = conv_log
+		self.events = events
 		self.verify_ssl = verify_ssl
+		self.start_urllib_request = urllib_request
+		self.start_urllib_response = urllib_response
 
 		return self._run()
-
-
-	def _select_handler_response(self):
-		responses = self.conv_log.last_failed_next_handler_responses('text/html')
-		if responses:
-			return responses[0]
-		else:
-			return None
 
 	def _run(self):
 		self.retval = 'NOK'
 
 		self.handler_response_cache = []
 
-		self.selected_handler_response = self._select_handler_response()
-		if not self.selected_handler_response:
-			return None
-
-		injected_qt_request = InjectedQNetworkRequest(self.selected_handler_response.urllib_request)
+		injected_qt_request = InjectedQNetworkRequest(self.start_urllib_request)
 
 		self.nam = InjectedQNetworkAccessManager(ignore_ssl_errors=True)
 		self.nam.setInjectedResponse(
-			self.selected_handler_response.urllib_request,
-			self.selected_handler_response.urllib_response,
+			self.start_urllib_request,
+			self.start_urllib_response,
 			self.cookie_jar
 			)
 		self.nam.setAutoCloseUrls(self.auto_close_urls)
 
-		self.nam.autocloseOk.connect(self.button_ok)
-		self.nam.autocloseFailed.connect(self.button_failed)
+		self.nam.autocloseOk.connect(self.autoclose_ok)
+		self.nam.autocloseFailed.connect(self.autoclose_failed)
 
 		self.nam.requestFinishing.connect(self._update_handler_results)
 
@@ -112,8 +101,6 @@ class ContentHandler(contenthandler.ContentHandler):
 		page.setNetworkAccessManager(self.nam)
 
 		browser.load(injected_qt_request, self.nam.GetOperation)
-
-
 
 		test_ok_button = QPushButton("Test &OK")
 		test_ok_button.clicked.connect(self.button_ok)
@@ -138,31 +125,90 @@ class ContentHandler(contenthandler.ContentHandler):
 
 		app.exec_()
 
-		#pprint.pprint (self.cookie_jar._cookies)
-
 		processed = False
 		if self.retval == 'OK' or self.retval == 'NOK':
 			processed = True
 
-		handler_response = HandlerResponse(processed, user_action=self.retval)
-
-		return handler_response
+		return self.retval
 
 	def _update_handler_results(self):
+		""" This is called on every finished request-response in the browser """
+		self._update_cookie_jar()
+		self._event_log_cache_results()
 
-		print ("update cookies!")
+	def _update_cookie_jar(self):
+
+		self.cookie_jar.extract_cookies(
+				self.nam.urllib_response,
+				self.nam.urllib_request
+				)
+
+	def _event_log_cache_results(self):
+
+		timestamp = time.time()
+		cache_element = {
+						'urllib_response': self.nam.urllib_response,
+						'urllib_request': self.nam.urllib_request,
+						'cookie_jar': self.cookie_jar,
+						'time': timestamp,
+						}
+
+		self.handler_response_cache.append(cache_element)
+
+	def _write_event_log_cache(self, status, all_but_last_ok=False):
+
+		first_pop = True
+		while self.handler_response_cache:
+			event = self.handler_response_cache.pop()
+			this_status = status
+			if all_but_last_ok and not first_pop:
+				this_status = aatest.events.EV_HANDLER_RESPONSE
+
+			hr_status = fwclasses.MyHandlerResponse.PROCESSED
+			if this_status == fwclasses.EV_FAILED_HANDLER_RESPONSE:
+				hr_status = fwclasses.MyHandlerResponse.FAILED_NEXT
+
+
+			handler_response = fwclasses.MyHandlerResponse(
+							'embeddedbrowser',
+							hr_status,
+							cookie_jar = event['cookie_jar'],
+							urllib_request = event['urllib_request'],
+							urllib_response = event['urllib_response']
+							)
+			# we use the somewhat "private" append, because we need to store data with the
+			# original event time
+			ev = aatest.events.Event(event['time'], this_status, handler_response,
+						 '', '','embeddedbrowser' )
+			self.events.events.append(ev)
+
+			first_pop = False
+
+	def autoclose_ok(self):
+		self.retval = 'OK'
+		self._write_event_log_cache(aatest.events.EV_HANDLER_RESPONSE)
+		QApplication.quit()
+
+
+	def autoclose_failed(self):
+		self.retval = 'NOK'
+		self._write_event_log_cache(fwclasses.EV_FAILED_HANDLER_RESPONSE, all_but_last_ok=True)
+		QApplication.quit()
 
 	def button_ok(self):
 		self.retval = 'OK'
+		self._write_event_log_cache(aatest.events.EV_HANDLER_RESPONSE)
 		QApplication.quit()
 
 
 	def button_failed(self):
 		self.retval = 'NOK'
+		self._write_event_log_cache(fwclasses.EV_FAILED_HANDLER_RESPONSE)
 		QApplication.quit()
 
 	def button_abort(self):
 		self.retval = 'aborted'
+		self._write_event_log_cache(fwclasses.EV_FAILED_HANDLER_RESPONSE)
 		QApplication.quit()
 
 """

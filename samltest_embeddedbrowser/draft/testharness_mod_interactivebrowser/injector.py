@@ -230,7 +230,7 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 
 	def createRequest(self, op, request, device = None):
 		if InjectedQNetworkRequest.thatRequestHasMagicQt4(request):
-			r =  InjectedNetworkReply(self, request.url(), self.urllib_response.read(), op, self.urllib_request, self.urllib_request)
+			r =  InjectedNetworkReply(self, request.url(), self.urllib_response.read(), op, self.urllib_request, self.urllib_response)
 			default_cookie_domain = self._cookie_default_domain(request)
 			cookiejar = self._import_cookie_jar(self.http_cookie_jar, default_cookie_domain)
 			self.setCookieJar(cookiejar)
@@ -270,7 +270,7 @@ class InjectedQNetworkAccessManager(QNetworkAccessManager):
 		url = request_url.toEncoded().data()
 		self.urllib_request = UrllibRequest(url, headers=request_headers)
 
-		#output_file = StringIO.StringIO()
+		#py2: output_file = StringIO.StringIO()
 		output_file = StringIO()
 		raw_header_pairs = qt_network_reply.rawHeaderPairs()
 		headers = []
