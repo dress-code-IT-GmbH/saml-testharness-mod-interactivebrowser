@@ -62,7 +62,7 @@ if __name__ == "__main__":
 	"""
 
 	auto_close_urls = AutoCloseUrls()
-	auto_close_urls.add(target_path + 'ack', 200, False)
+	auto_close_urls.add(target_path + 'ack', 200, True)
 
 	test = ContentHandler(None, None)
 	result = test.handle_response(
